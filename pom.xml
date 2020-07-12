@@ -6,7 +6,7 @@
   <parent>
     <groupId>org.kie</groupId>
     <artifactId>kie-parent</artifactId>
-    <version>7.39.0-SNAPSHOT</version>
+    <version>7.40.0.20200703</version>
   </parent>
 
   <groupId>org.optaplanner</groupId>
@@ -31,7 +31,8 @@
     <formatter.goal>format</formatter.goal>
     <impsort.goal>sort</impsort.goal>
     <jacoco.agent.argLine/>
-    <spotbugs.failOnViolation>true</spotbugs.failOnViolation>
+    <!-- TODO https://issues.redhat.com/browse/PLANNER-2042 -->
+    <spotbugs.failOnViolation>false</spotbugs.failOnViolation>
     <version.org.mockito>3.1.0</version.org.mockito>
   </properties>
 
@@ -66,9 +67,9 @@
   <modules>
     <module>optaplanner-core</module>
     <module>optaplanner-persistence</module>
-    <module>optaplanner-integration</module>
     <module>optaplanner-benchmark</module>
     <module>optaplanner-test</module>
+    <module>optaplanner-integration</module><!-- TODO rename to optaplanner-spring-integration-->
     <module>optaplanner-examples</module>
   </modules>
 
@@ -115,6 +116,18 @@
       <modules>
         <module>optaplanner-docs</module>
         <module>optaplanner-distribution</module>
+      </modules>
+    </profile>
+    <profile>
+      <id>notProductizedProfile</id>
+      <activation>
+        <property>
+          <name>!productized</name>
+        </property>
+      </activation>
+      <modules>
+        <!-- Until Kogito is productized, neither can optaplanner-quarkus be productized. -->
+        <module>optaplanner-quarkus-integration</module>
       </modules>
     </profile>
     <profile>
@@ -211,6 +224,7 @@
                 <checkstyleRules combine.self="override">
                   <module name="Checker">
                     <property name="severity" value="warning" default="warning"/>
+                    <property name="cacheFile" value="target/cachefile"/>
                     <!-- Checks whether files end with a new line. -->
                     <module name="NewlineAtEndOfFile">
                       <property name="lineSeparator" value="lf"/>
@@ -222,7 +236,6 @@
                     </module>
                     <module name="SuppressWarningsFilter"/>
                     <module name="TreeWalker">
-                      <property name="cacheFile" value="target/cachefile"/>
                       <property name="tabWidth" value="4"/>
                       <!-- Checks for Javadoc comments. -->
                       <module name="JavadocStyle"/>

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2020 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-package org.optaplanner.core.impl.solver.thread;
+package org.optaplanner.core.impl.heuristic.thread;
 
-import static org.junit.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.optaplanner.core.impl.testdata.util.PlannerAssert.assertCode;
-import static org.optaplanner.core.impl.testdata.util.PlannerAssert.assertSame;
-import static org.optaplanner.core.impl.testdata.util.PlannerAssert.fail;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -31,7 +30,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.optaplanner.core.api.score.buildin.simple.SimpleScore;
 import org.optaplanner.core.impl.heuristic.move.DummyMove;
-import org.optaplanner.core.impl.heuristic.thread.OrderByMoveIndexBlockingQueue;
 import org.optaplanner.core.impl.partitionedsearch.queue.PartitionQueueTest;
 import org.optaplanner.core.impl.testdata.domain.TestdataSolution;
 import org.slf4j.Logger;
@@ -141,12 +139,7 @@ public class OrderByMoveIndexBlockingQueueTest {
         executorService.submit(() -> queue.addMove(0, 1, 2, new DummyMove("b2"), SimpleScore.of(-2)));
         assertResult("b0", false, queue.take());
         assertResult("b1", -1, queue.take());
-        try {
-            queue.take();
-            fail("There was no RuntimeException thrown.");
-        } catch (RuntimeException e) {
-            assertSame(exception, e.getCause());
-        }
+        assertThatThrownBy(queue::take).hasCause(exception);
     }
 
     @Test
@@ -161,28 +154,25 @@ public class OrderByMoveIndexBlockingQueueTest {
         executorService.submit(() -> queue.addMove(1, 0, 3, new DummyMove("a3"), SimpleScore.of(-3)));
         IllegalArgumentException exception = new IllegalArgumentException();
         Future<?> exceptionFuture = executorService.submit(() -> queue.addExceptionThrown(1, exception));
-        try {
+        assertThatThrownBy(() -> {
             assertResult("a0", 0, queue.take());
             assertResult("a1", -1, queue.take());
             assertResult("a2", -2, queue.take());
 
             exceptionFuture.get(); // Avoid random failing test when the task hasn't started yet
             queue.startNextStep(1);
-            fail("There was no RuntimeException thrown.");
-        } catch (RuntimeException e) {
-            assertSame(exception, e.getCause());
-        }
+        }).hasCause(exception);
     }
 
     private void assertResult(String moveCode, int score, OrderByMoveIndexBlockingQueue.MoveResult<TestdataSolution> result) {
         assertCode(moveCode, result.getMove());
-        assertEquals(SimpleScore.of(score), result.getScore());
+        assertThat(result.getScore()).isEqualTo(SimpleScore.of(score));
     }
 
     private void assertResult(String moveCode, boolean doable,
             OrderByMoveIndexBlockingQueue.MoveResult<TestdataSolution> result) {
         assertCode(moveCode, result.getMove());
-        assertEquals(doable, result.isMoveDoable());
+        assertThat(result.isMoveDoable()).isEqualTo(doable);
     }
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2020 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,7 @@ package org.optaplanner.core.api.solver;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.assertj.core.api.Assertions.fail;
 import static org.optaplanner.core.api.solver.SolverStatus.NOT_SOLVING;
 import static org.optaplanner.core.api.solver.SolverStatus.SOLVING_ACTIVE;
 import static org.optaplanner.core.api.solver.SolverStatus.SOLVING_SCHEDULED;
@@ -117,28 +115,28 @@ public class SolverManagerTest {
         solverThreadReadyBarrier.await();
         SolverJob<TestdataSolution, Long> solverJob2 = solverManager.solve(2L,
                 PlannerTestUtils.generateTestdataSolution("s2"));
-        assertEquals(SOLVING_ACTIVE, solverManager.getSolverStatus(1L));
-        assertEquals(SOLVING_ACTIVE, solverJob1.getSolverStatus());
-        assertEquals(SOLVING_SCHEDULED, solverManager.getSolverStatus(2L));
-        assertEquals(SOLVING_SCHEDULED, solverJob2.getSolverStatus());
+        assertThat(solverManager.getSolverStatus(1L)).isEqualTo(SOLVING_ACTIVE);
+        assertThat(solverJob1.getSolverStatus()).isEqualTo(SOLVING_ACTIVE);
+        assertThat(solverManager.getSolverStatus(2L)).isEqualTo(SOLVING_SCHEDULED);
+        assertThat(solverJob2.getSolverStatus()).isEqualTo(SOLVING_SCHEDULED);
         mainThreadReadyBarrier.await();
         solverThreadReadyBarrier.await();
-        assertEquals(NOT_SOLVING, solverManager.getSolverStatus(1L));
-        assertEquals(NOT_SOLVING, solverJob1.getSolverStatus());
-        assertEquals(SOLVING_ACTIVE, solverManager.getSolverStatus(2L));
-        assertEquals(SOLVING_ACTIVE, solverJob2.getSolverStatus());
+        assertThat(solverManager.getSolverStatus(1L)).isEqualTo(NOT_SOLVING);
+        assertThat(solverJob1.getSolverStatus()).isEqualTo(NOT_SOLVING);
+        assertThat(solverManager.getSolverStatus(2L)).isEqualTo(SOLVING_ACTIVE);
+        assertThat(solverJob2.getSolverStatus()).isEqualTo(SOLVING_ACTIVE);
         mainThreadReadyBarrier.await();
         solverJob1.getFinalBestSolution();
         solverJob2.getFinalBestSolution();
-        assertEquals(NOT_SOLVING, solverManager.getSolverStatus(1L));
-        assertEquals(NOT_SOLVING, solverJob1.getSolverStatus());
-        assertEquals(NOT_SOLVING, solverManager.getSolverStatus(2L));
-        assertEquals(NOT_SOLVING, solverJob2.getSolverStatus());
+        assertThat(solverManager.getSolverStatus(1L)).isEqualTo(NOT_SOLVING);
+        assertThat(solverJob1.getSolverStatus()).isEqualTo(NOT_SOLVING);
+        assertThat(solverManager.getSolverStatus(2L)).isEqualTo(NOT_SOLVING);
+        assertThat(solverJob2.getSolverStatus()).isEqualTo(NOT_SOLVING);
     }
 
     @Test
     @Timeout(60)
-    public void exceptionInSolver() throws InterruptedException {
+    public void exceptionInSolver() {
         SolverConfig solverConfig = PlannerTestUtils.buildSolverConfig(TestdataSolution.class, TestdataEntity.class)
                 .withPhases(new CustomPhaseConfig().withCustomPhaseCommands(
                         scoreDirector -> {
@@ -151,20 +149,17 @@ public class SolverManagerTest {
         SolverJob<TestdataSolution, Long> solverJob1 = solverManager.solve(1L,
                 problemId -> PlannerTestUtils.generateTestdataSolution("s1"),
                 null, (problemId, throwable) -> exceptionCount.incrementAndGet());
-        try {
-            solverJob1.getFinalBestSolution();
-            fail("Exception got eaten.");
-        } catch (ExecutionException e) {
-            assertEquals(1, exceptionCount.get());
-            assertEquals("exceptionInSolver", e.getCause().getCause().getMessage());
-        }
-        assertEquals(NOT_SOLVING, solverManager.getSolverStatus(1L));
-        assertEquals(NOT_SOLVING, solverJob1.getSolverStatus());
+        assertThatThrownBy(solverJob1::getFinalBestSolution)
+                .isInstanceOf(ExecutionException.class)
+                .hasRootCauseMessage("exceptionInSolver");
+        assertThat(exceptionCount.get()).isEqualTo(1);
+        assertThat(solverManager.getSolverStatus(1L)).isEqualTo(NOT_SOLVING);
+        assertThat(solverJob1.getSolverStatus()).isEqualTo(NOT_SOLVING);
     }
 
     @Test
     @Timeout(60)
-    public void exceptionInConsumer() throws InterruptedException {
+    public void exceptionInConsumer() {
         SolverConfig solverConfig = PlannerTestUtils.buildSolverConfig(TestdataSolution.class, TestdataEntity.class)
                 .withPhases(new ConstructionHeuristicPhaseConfig());
         SolverManager<TestdataSolution, Long> solverManager = SolverManager.create(
@@ -176,15 +171,12 @@ public class SolverManagerTest {
                 bestSolution -> {
                     throw new IllegalStateException("exceptionInConsumer");
                 }, (problemId, throwable) -> exceptionCount.incrementAndGet());
-        try {
-            solverJob1.getFinalBestSolution();
-            fail("Exception got eaten.");
-        } catch (ExecutionException e) {
-            assertEquals(1, exceptionCount.get());
-            assertEquals("exceptionInConsumer", e.getCause().getCause().getMessage());
-        }
-        assertEquals(NOT_SOLVING, solverManager.getSolverStatus(1L));
-        assertEquals(NOT_SOLVING, solverJob1.getSolverStatus());
+        assertThatThrownBy(solverJob1::getFinalBestSolution)
+                .isInstanceOf(ExecutionException.class)
+                .hasRootCauseMessage("exceptionInConsumer");
+        assertThat(exceptionCount.get()).isEqualTo(1);
+        assertThat(solverManager.getSolverStatus(1L)).isEqualTo(NOT_SOLVING);
+        assertThat(solverJob1.getSolverStatus()).isEqualTo(NOT_SOLVING);
     }
 
     @Test
@@ -267,7 +259,7 @@ public class SolverManagerTest {
                 });
         assertSolutionInitialized(solverJob1.getFinalBestSolution());
         // EventCount can be 2 or 3, depending on the race, but it can never be 4.
-        assertTrue(eventCount.get() < 4);
+        assertThat(eventCount).hasValueLessThan(4);
     }
 
     @Test
@@ -298,35 +290,35 @@ public class SolverManagerTest {
 
         // Give solver 1 enough time to start
         startedBarrier.await();
-        assertEquals(SOLVING_ACTIVE, solverManager.getSolverStatus(1L));
-        assertEquals(SOLVING_ACTIVE, solverJob1.getSolverStatus());
-        assertEquals(SOLVING_SCHEDULED, solverManager.getSolverStatus(2L));
-        assertEquals(SOLVING_SCHEDULED, solverJob2.getSolverStatus());
-        assertEquals(SOLVING_SCHEDULED, solverManager.getSolverStatus(3L));
-        assertEquals(SOLVING_SCHEDULED, solverJob3.getSolverStatus());
+        assertThat(solverManager.getSolverStatus(1L)).isEqualTo(SOLVING_ACTIVE);
+        assertThat(solverJob1.getSolverStatus()).isEqualTo(SOLVING_ACTIVE);
+        assertThat(solverManager.getSolverStatus(2L)).isEqualTo(SOLVING_SCHEDULED);
+        assertThat(solverJob2.getSolverStatus()).isEqualTo(SOLVING_SCHEDULED);
+        assertThat(solverManager.getSolverStatus(3L)).isEqualTo(SOLVING_SCHEDULED);
+        assertThat(solverJob3.getSolverStatus()).isEqualTo(SOLVING_SCHEDULED);
 
         // Terminate solver 2 before it begins
         solverManager.terminateEarly(2L);
-        assertEquals(SOLVING_ACTIVE, solverManager.getSolverStatus(1L));
-        assertEquals(SOLVING_ACTIVE, solverJob1.getSolverStatus());
-        assertEquals(NOT_SOLVING, solverManager.getSolverStatus(2L));
-        assertEquals(NOT_SOLVING, solverJob2.getSolverStatus());
-        assertEquals(SOLVING_SCHEDULED, solverManager.getSolverStatus(3L));
-        assertEquals(SOLVING_SCHEDULED, solverJob3.getSolverStatus());
+        assertThat(solverManager.getSolverStatus(1L)).isEqualTo(SOLVING_ACTIVE);
+        assertThat(solverJob1.getSolverStatus()).isEqualTo(SOLVING_ACTIVE);
+        assertThat(solverManager.getSolverStatus(2L)).isEqualTo(NOT_SOLVING);
+        assertThat(solverJob2.getSolverStatus()).isEqualTo(NOT_SOLVING);
+        assertThat(solverManager.getSolverStatus(3L)).isEqualTo(SOLVING_SCHEDULED);
+        assertThat(solverJob3.getSolverStatus()).isEqualTo(SOLVING_SCHEDULED);
 
         // Terminate solver 1 while it is running, allowing solver 3 to start
         solverManager.terminateEarly(1L);
-        assertEquals(NOT_SOLVING, solverManager.getSolverStatus(1L));
-        assertEquals(NOT_SOLVING, solverJob1.getSolverStatus());
+        assertThat(solverManager.getSolverStatus(1L)).isEqualTo(NOT_SOLVING);
+        assertThat(solverJob1.getSolverStatus()).isEqualTo(NOT_SOLVING);
         // Give solver 3 enough time to start
         startedBarrier.await();
-        assertEquals(SOLVING_ACTIVE, solverManager.getSolverStatus(3L));
-        assertEquals(SOLVING_ACTIVE, solverJob3.getSolverStatus());
+        assertThat(solverManager.getSolverStatus(3L)).isEqualTo(SOLVING_ACTIVE);
+        assertThat(solverJob3.getSolverStatus()).isEqualTo(SOLVING_ACTIVE);
 
         // Terminate solver 3 while it is running
         solverManager.terminateEarly(3L);
-        assertEquals(NOT_SOLVING, solverManager.getSolverStatus(3L));
-        assertEquals(NOT_SOLVING, solverJob3.getSolverStatus());
+        assertThat(solverManager.getSolverStatus(3L)).isEqualTo(NOT_SOLVING);
+        assertThat(solverJob3.getSolverStatus()).isEqualTo(NOT_SOLVING);
     }
 
     /**
